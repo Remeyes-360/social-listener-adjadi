@@ -58,3 +58,6 @@ npm run dev
 - **Twitter/X**: Public tweets are indexed by search engines and generally return better results.
 - **LinkedIn**: Professional posts are partially indexed.
 - Rate limits apply to both Tavily (search) and Anthropic (analysis) APIs.
+
+
+<!-- v2: Remi + Perplexity + mock data -->
