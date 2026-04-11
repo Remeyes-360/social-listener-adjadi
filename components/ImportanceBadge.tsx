@@ -17,7 +17,7 @@ export function ImportanceBadge({ importance }: ImportanceBadgeProps) {
       text: '#fca5a5',
       animate: true,
     },
-    notable: {
+    high: {
       icon: '⚡',
       label: 'Notable',
       bg: 'rgba(168,85,247,0.12)',
@@ -25,6 +25,14 @@ export function ImportanceBadge({ importance }: ImportanceBadgeProps) {
       text: '#c084fc',
       animate: false,
     },
+        medium: {
+                icon: '📊',
+                label: 'Moyen',
+                bg: 'rgba(99,102,241,0.12)',
+                border: 'rgba(99,102,241,0.3)',
+                text: '#a5b4fc',
+                animate: false,
+              },
     low: {
       icon: '📌',
       label: 'Faible',
