@@ -6,6 +6,7 @@ const nextConfig = {
   images: {
     domains: ['pbs.twimg.com', 'instagram.com', 'facebook.com', 'linkedin.com', 'tiktok.com'],
   },
+  turbopack: {},
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
