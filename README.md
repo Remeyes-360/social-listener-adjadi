@@ -1,4 +1,4 @@
-# 📡 Social Media Listener — Olushegun ADJADI BAKARI  
+# 📡 Social Media Listener — Olushegun ADJADI BAKARI   
 
 Real-time social media monitoring dashboard powered by **Social listening** (Perplexity AI).
 
