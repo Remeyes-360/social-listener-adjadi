@@ -25,7 +25,7 @@ Respond ONLY with a valid JSON object (no markdown, no explanation):
   "confidence": <integer 0-100>,
   "summary": "<one impactful sentence in the detected language summarizing this mention>",
   "context": "political" | "professional" | "media" | "personal" | "other",
-  "importance": "critical" | "notable" | "low",
+    "importance": "critical" | "high" | "medium" | "low",
   "language": "<ISO 639-1 code, e.g. fr, en, es>"
 }
 
@@ -34,7 +34,7 @@ Rules:
 - confidence: how certain you are (0-100)
 - summary: punchy 1-sentence synthesis
 - context: the main domain/context of this mention
-- importance: critical=viral/major news, notable=relevant mention, low=minor reference
+- importance: critical=viral/major news, high=relevant mention, medium=moderate interest, low=minor reference
 - language: language of the content`;
 }
 
