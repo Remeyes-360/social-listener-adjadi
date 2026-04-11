@@ -9,7 +9,7 @@ import { StatsPanel } from '@/components/StatsPanel';
 import { LiveIndicator } from '@/components/LiveIndicator';
 import { RefreshCw, Download, Radio, AlertTriangle, Activity } from 'lucide-react';
 
-const POLL_INTERVAL = 3600; // 1 heure
+const POLL_INTERVAL = 3600; // 1 heure 
 
 const defaultFilters: Filters = {
   sentiment: 'all',
