@@ -1,12 +1,11 @@
 'use client';
-
 import React from 'react';
 import { AnalyzedMention } from '@/lib/types';
 import { getPlatformConfig } from '@/lib/platforms';
 import { PlatformIcon } from './PlatformIcon';
 import { SentimentBadge } from './SentimentBadge';
 import { ImportanceBadge } from './ImportanceBadge';
-import { ExternalLink, Clock, Globe, User, Heart, Share2, MessageCircle } from 'lucide-react';
+import { ExternalLink, Clock, Globe, User, Heart, Share2, MessageCircle, Calendar } from 'lucide-react';
 
 interface MentionCardProps {
   mention: AnalyzedMention;
@@ -24,6 +23,19 @@ function timeAgo(dateStr?: string): string {
   return `il y a ${Math.floor(diff / 86400)}j`;
 }
 
+function formatDate(dateStr?: string): string {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 function getDomain(url: string): string {
   try {
     return new URL(url).hostname.replace('www.', '');
@@ -33,29 +45,32 @@ function getDomain(url: string): string {
 }
 
 const contextLabels: Record<string, string> = {
-  political: '\uD83C\uDFDB\uFE0F Politique',
-  professional: '\uD83D\uDCBC Professionnel',
-  media: '\uD83D\uDCFA M\u00e9diatique',
-  personal: '\uD83D\uDC64 Personnel',
-  customer_service: '\uD83C\uDF9F\uFE0F Support',
-  product_feedback: '\uD83D\uDCCA Feedback',
-  brand_mention: '\uD83C\uDF1F Marque',
-  crisis: '\u26A0\uFE0F Crise',
-  other: '\uD83D\uDD17 Autre',
+  political: '🏻️ Politique',
+  professional: '💼 Professionnel',
+  media: '📺 Médiatique',
+  personal: '👤 Personnel',
+  customer_service: '🎟️ Support',
+  product_feedback: '📊 Feedback',
+  brand_mention: '🌟 Marque',
+  crisis: '⚠️ Crise',
+  other: '🔗 Autre',
 };
 
 const languageLabels: Record<string, string> = {
-  fr: '\uD83C\uDDEB\uD83C\uDDF7 FR',
-  en: '\uD83C\uDDEC\uD83C\uDDE7 EN',
-  es: '\uD83C\uDDEA\uD83C\uDDF8 ES',
-  de: '\uD83C\uDDE9\uD83C\uDDEA DE',
-  pt: '\uD83C\uDDF5\uD83C\uDDF9 PT',
-  ar: '\uD83C\uDDF8\uD83C\uDDE6 AR',
+  fr: '🇫🇷 FR',
+  en: '🇬🇧 EN',
+  es: '🇪🇸 ES',
+  de: '🇩🇪 DE',
+  pt: '🇵🇹 PT',
+  ar: '🇸🇦 AR',
 };
 
 export function MentionCard({ mention, isNew = false }: MentionCardProps) {
   const platform = getPlatformConfig(mention.platform);
   const hasEngagement = mention.engagement && (mention.engagement.likes > 0 || mention.engagement.shares > 0 || mention.engagement.comments > 0);
+  const dateSource = mention.publishedAt || mention.analyzedAt;
+  const fullDate = formatDate(dateSource);
+  const relativeDate = timeAgo(dateSource);
 
   return (
     <div
@@ -74,7 +89,6 @@ export function MentionCard({ mention, isNew = false }: MentionCardProps) {
       {mention.analysis.importance === 'critical' && (
         <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 animate-ping" />
       )}
-
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-2 min-w-0">
@@ -99,20 +113,17 @@ export function MentionCard({ mention, isNew = false }: MentionCardProps) {
           <ImportanceBadge importance={mention.analysis.importance} />
         </div>
       </div>
-
       {/* Content */}
       <p className="text-sm text-gray-200 leading-relaxed mb-3 line-clamp-3">
         {mention.content || mention.title || 'Aucun contenu'}
       </p>
-
-      {/* R\u00eami Summary */}
+      {/* Social Listening Summary */}
       <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-2.5 mb-3">
         <p className="text-xs text-purple-300">
-          <span className="font-semibold text-purple-400">R\u00eami \u2192 </span>
+          <span className="font-semibold text-purple-400">Social listening → </span>
           {mention.analysis.summary}
         </p>
       </div>
-
       {/* Badges row */}
       <div className="flex items-center flex-wrap gap-1.5 mb-3">
         <span className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded-full">
@@ -127,7 +138,6 @@ export function MentionCard({ mention, isNew = false }: MentionCardProps) {
           </span>
         )}
       </div>
-
       {/* Engagement */}
       {hasEngagement && (
         <div className="flex items-center gap-3 mb-3 text-xs text-gray-500">
@@ -142,12 +152,19 @@ export function MentionCard({ mention, isNew = false }: MentionCardProps) {
           </span>
         </div>
       )}
-
       {/* Footer */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1 text-xs text-gray-600">
-          <Clock className="w-3 h-3" />
-          <span>{timeAgo(mention.publishedAt)}</span>
+        <div className="flex items-center gap-3 text-xs text-gray-500">
+          {fullDate && (
+            <span className="flex items-center gap-1">
+              <Calendar className="w-3 h-3" />
+              <span>{fullDate}</span>
+            </span>
+          )}
+          <span className="flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            <span>{relativeDate}</span>
+          </span>
         </div>
         <a
           href={mention.url}
