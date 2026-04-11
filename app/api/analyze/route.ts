@@ -30,9 +30,9 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('R\u00eami analyze API error:', error);
+    console.error('Social listening analyze API error:', error);
     return NextResponse.json(
-      { error: 'Erreur lors de l\'analyse R\u00eami', mentions: [], timestamp: new Date().toISOString() },
+      { error: 'Erreur lors de l\'analyse Social listening', mentions: [], timestamp: new Date().toISOString() },
       { status: 500 }
     );
   }
