@@ -2,18 +2,26 @@ export type Platform = 'twitter' | 'instagram' | 'facebook' | 'linkedin' | 'tikt
 
 export type Sentiment = 'positive' | 'neutral' | 'negative';
 
-export type ImportanceLevel = 'critical' | 'notable' | 'low';
+export type ImportanceLevel = 'critical' | 'high' | 'medium' | 'low';
 
-export type Context = 'political' | 'professional' | 'media' | 'personal' | 'other';
+export type ImpressionLevel = ImportanceLevel; // alias for backwards compat
+
+export type Context = 'political' | 'professional' | 'media' | 'personal' | 'customer_service' | 'product_feedback' | 'brand_mention' | 'crisis' | 'other';
 
 export interface RawMention {
   id: string;
   url: string;
-  title: string;
+  title?: string;
   content: string;
   platform: Platform;
-  publishedDate?: string;
+  author: string;
+  publishedAt?: string;
   score?: number;
+  engagement?: {
+    likes: number;
+    shares: number;
+    comments: number;
+  };
 }
 
 export interface AnalyzedMention extends RawMention {
