@@ -8,7 +8,8 @@ Real-time social media monitoring dashboard powered by **Social listening** (Per
 - 🤖 AI-powered analysis by **Social listening**: sentiment, context, importance, summary
 - 📊 Live stats: charts by platform, sentiment breakdown, timeline
 - 🔴 Critical mention alerts with visual pulse indicators
-- ⚡ Auto-refresh every 1 hour + manual refresh 
+- ⚡ Auto-refresh every 1 hour + manual refresh
+- <!-- deploy -->
 - 📦 JSON export of all analyzed mentions
 - 🌙 Dark mode professional UI
 - 📅 Mentions triées du plus récent au plus ancien
