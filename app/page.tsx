@@ -200,10 +200,10 @@ export default function Dashboard() {
         <div className="flex-1 min-w-0">
           {/* Platform tabs */}
           <PlatformTabs
-            activePlatform={activePlatform}
-            onPlatformChange={setActivePlatform}
-            counts={platformCounts}
-          />
+  active={activePlatform}
+  onChange={setActivePlatform}
+  counts={platformCounts}
+/>
           {/* Filter bar */}
           <FilterBar filters={filters} onChange={setFilters} />
           {/* Results summary */}
