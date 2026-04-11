@@ -1,5 +1,4 @@
 'use client';
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AnalyzedMention, Platform } from '@/lib/types';
 import { SUBJECT_NAME } from '@/lib/platforms';
@@ -8,7 +7,7 @@ import { PlatformTabs } from '@/components/PlatformTabs';
 import { FilterBar, Filters } from '@/components/FilterBar';
 import { StatsPanel } from '@/components/StatsPanel';
 import { LiveIndicator } from '@/components/LiveIndicator';
-import { RefreshCw, Download, Radio, AlertTriangle, Cpu } from 'lucide-react';
+import { RefreshCw, Download, Radio, AlertTriangle, Activity } from 'lucide-react';
 
 const POLL_INTERVAL = 3600; // 1 heure
 
@@ -18,6 +17,12 @@ const defaultFilters: Filters = {
   context: 'all',
   language: 'all',
 };
+
+function sortByDateDesc(a: AnalyzedMention, b: AnalyzedMention): number {
+  const dateA = new Date(a.publishedAt || a.analyzedAt || 0).getTime();
+  const dateB = new Date(b.publishedAt || b.analyzedAt || 0).getTime();
+  return dateB - dateA;
+}
 
 export default function Dashboard() {
   const [mentions, setMentions] = useState<AnalyzedMention[]>([]);
@@ -34,31 +39,26 @@ export default function Dashboard() {
   const fetchAndAnalyze = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-
     try {
       // Step 1: Fetch raw mentions
       const mentionsRes = await fetch('/api/mentions');
       if (!mentionsRes.ok) throw new Error('Erreur lors de la r\u00e9cup\u00e9ration des mentions');
       const mentionsData = await mentionsRes.json();
       const rawMentions = mentionsData.mentions || [];
-
       if (rawMentions.length === 0) {
         setLastRefresh(new Date());
         setIsLoading(false);
         return;
       }
-
-      // Step 2: R\u00eami searching
+      // Step 2: Analyze
       const analyzeRes = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mentions: rawMentions }),
       });
-
-      if (!analyzeRes.ok) throw new Error('Erreur lors de l\'analyse R\u00eami');
+      if (!analyzeRes.ok) throw new Error('Erreur lors de l\'analyse');
       const analyzeData = await analyzeRes.json();
       const analyzed: AnalyzedMention[] = analyzeData.mentions || [];
-
       // Mark new mentions
       const existingIds = new Set(mentions.map((m) => m.id));
       const newIds = new Set(analyzed.filter((m) => !existingIds.has(m.id)).map((m) => m.id));
@@ -66,8 +66,8 @@ export default function Dashboard() {
         setNewMentionIds(newIds);
         setTimeout(() => setNewMentionIds(new Set()), 3000);
       }
-
-      setMentions(analyzed);
+      // Sort by date desc (most recent first)
+      setMentions([...analyzed].sort(sortByDateDesc));
       setLastRefresh(new Date());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur inconnue');
@@ -128,15 +128,17 @@ export default function Dashboard() {
     platformCounts[m.platform] = (platformCounts[m.platform] || 0) + 1;
   });
 
-  // Filter logic
-  const filteredMentions = mentions.filter((m) => {
-    if (activePlatform !== 'all' && m.platform !== activePlatform) return false;
-    if (filters.sentiment !== 'all' && m.analysis.sentiment !== filters.sentiment) return false;
-    if (filters.importance !== 'all' && m.analysis.importance !== filters.importance) return false;
-    if (filters.context !== 'all' && m.analysis.context !== filters.context) return false;
-    if (filters.language !== 'all' && m.analysis.language !== filters.language) return false;
-    return true;
-  });
+  // Filter logic + sort by date desc
+  const filteredMentions = mentions
+    .filter((m) => {
+      if (activePlatform !== 'all' && m.platform !== activePlatform) return false;
+      if (filters.sentiment !== 'all' && m.analysis.sentiment !== filters.sentiment) return false;
+      if (filters.importance !== 'all' && m.analysis.importance !== filters.importance) return false;
+      if (filters.context !== 'all' && m.analysis.context !== filters.context) return false;
+      if (filters.language !== 'all' && m.analysis.language !== filters.language) return false;
+      return true;
+    })
+    .sort(sortByDateDesc);
 
   const criticalCount = mentions.filter((m) => m.analysis.importance === 'critical').length;
 
@@ -153,7 +155,6 @@ export default function Dashboard() {
               <h1 className="text-xl font-bold text-white">{SUBJECT_NAME}</h1>
             </div>
           </div>
-
           {/* Center: live + alerts */}
           <div className="flex items-center gap-3">
             <LiveIndicator />
@@ -164,12 +165,11 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-
           {/* Right: actions */}
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 bg-purple-500/20 text-purple-300 px-3 py-1.5 rounded-full text-xs border border-purple-500/30">
-              <Cpu className="w-3.5 h-3.5" />
-              <span>Powered by R\u00eami</span>
+            <div className="flex items-center gap-1.5 bg-blue-500/20 text-blue-300 px-3 py-1.5 rounded-full text-xs border border-blue-500/30">
+              <Activity className="w-3.5 h-3.5" />
+              <span>Social listening</span>
             </div>
             {lastRefresh && (
               <span className="text-xs text-gray-500">
@@ -194,7 +194,6 @@ export default function Dashboard() {
           </div>
         </div>
       </header>
-
       {/* Main content */}
       <main className="max-w-7xl mx-auto px-4 py-6 flex gap-6">
         {/* Left: Feed */}
@@ -205,10 +204,8 @@ export default function Dashboard() {
             onPlatformChange={setActivePlatform}
             counts={platformCounts}
           />
-
           {/* Filter bar */}
           <FilterBar filters={filters} onChange={setFilters} />
-
           {/* Results summary */}
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-gray-400">
@@ -216,13 +213,12 @@ export default function Dashboard() {
               {filteredMentions.length !== mentions.length && ` (sur ${mentions.length})`}
             </p>
             {isLoading && (
-              <div className="flex items-center gap-2 text-purple-400 text-sm">
+              <div className="flex items-center gap-2 text-blue-400 text-sm">
                 <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>R\u00eami searching…</span>
+                <span>Social listening\u2026</span>
               </div>
             )}
           </div>
-
           {/* Error */}
           {error && (
             <div className="mb-4 p-4 bg-red-900/30 border border-red-700 rounded-xl">
@@ -233,20 +229,18 @@ export default function Dashboard() {
               <p className="text-red-300 text-sm mt-1">{error}</p>
             </div>
           )}
-
-          {/* Feed */}
+          {/* Feed - trié du plus récent au plus ancien */}
           {!isLoading && filteredMentions.length === 0 && !error && (
             <div className="text-center py-16 text-gray-500">
-              <div className="text-4xl mb-3">\uD83D\uDCE1</div>
-              <p className="text-lg font-medium">Aucune mention trouv\u00e9e</p>
+              <div className="text-4xl mb-3">📡</div>
+              <p className="text-lg font-medium">Aucune mention trouvée</p>
               <p className="text-sm mt-1">
                 {mentions.length > 0
                   ? 'Essayez de modifier vos filtres'
-                  : 'Configurez vos cl\u00e9s API puis actualisez'}
+                  : 'Configurez vos clés API puis actualisez'}
               </p>
             </div>
           )}
-
           <div className="space-y-3">
             {filteredMentions.map((mention) => (
               <MentionCard
@@ -257,7 +251,6 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
-
         {/* Right: Stats sidebar */}
         <aside className="w-80 shrink-0">
           <div className="flex items-center justify-between mb-4">
@@ -267,11 +260,10 @@ export default function Dashboard() {
           <StatsPanel mentions={mentions} />
         </aside>
       </main>
-
       {/* Footer */}
       <footer className="border-t border-gray-800 mt-8 py-4">
         <div className="max-w-7xl mx-auto px-4 flex items-center justify-between text-xs text-gray-600">
-          <span>Social Listener &middot; Powered by R\u00eami</span>
+          <span>Social Listener · Social listening</span>
           <span>Rafra\u00eechissement auto toutes les heures</span>
         </div>
       </footer>
