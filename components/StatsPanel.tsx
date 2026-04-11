@@ -91,7 +91,7 @@ export function StatsPanel({ mentions }: StatsPanelProps) {
         <div className="text-3xl font-bold text-white">{mentions.length}</div>
         <div className="text-xs text-slate-500 mt-1">
           {mentions.filter((m) => m.analysis.importance === 'critical').length} critiques ·{' '}
-          {mentions.filter((m) => m.analysis.importance === 'notable').length} notables
+          {mentions.filter((m) => m.analysis.importance === 'high').length} highs
         </div>
       </div>
 
