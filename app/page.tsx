@@ -10,7 +10,7 @@ import { StatsPanel } from '@/components/StatsPanel';
 import { LiveIndicator } from '@/components/LiveIndicator';
 import { RefreshCw, Download, Radio, AlertTriangle, Cpu } from 'lucide-react';
 
-const POLL_INTERVAL = 60;
+const POLL_INTERVAL = 3600; // 1 heure
 
 const defaultFilters: Filters = {
   sentiment: 'all',
@@ -272,7 +272,7 @@ export default function Dashboard() {
       <footer className="border-t border-gray-800 mt-8 py-4">
         <div className="max-w-7xl mx-auto px-4 flex items-center justify-between text-xs text-gray-600">
           <span>Social Listener &middot; Powered by R\u00eami</span>
-          <span>Rafra\u00eechissement auto toutes les {POLL_INTERVAL}s</span>
+          <span>Rafra\u00eechissement auto toutes les heures</span>
         </div>
       </footer>
     </div>
