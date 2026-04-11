@@ -26,7 +26,8 @@ const sentimentOptions: { value: Sentiment | 'all'; label: string }[] = [
 const importanceOptions: { value: ImportanceLevel | 'all'; label: string }[] = [
   { value: 'all', label: 'Toute importance' },
   { value: 'critical', label: '🔥 Critique' },
-  { value: 'notable', label: '⚡ Notable' },
+  { value: 'high', label: '⚡ Notable' },
+    { value: 'medium', label: '📊 Moyen' },
   { value: 'low', label: '📌 Faible' },
 ];
 
