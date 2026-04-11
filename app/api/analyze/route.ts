@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { analyzeMentions } from '@/lib/claude';
+import { analyzeMentions } from '@/lib/perplexity';
 import { RawMention } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.PERPLEXITY_API_KEY;
 
   if (!apiKey) {
     return NextResponse.json(
-      { error: 'ANTHROPIC_API_KEY not configured', mentions: [], timestamp: new Date().toISOString() },
+      { error: 'PERPLEXITY_API_KEY not configured', mentions: [], timestamp: new Date().toISOString() },
       { status: 500 }
     );
   }
@@ -30,13 +30,9 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Analyze API error:', error);
+    console.error('R\u00eami analyze API error:', error);
     return NextResponse.json(
-      {
-        error: 'Failed to analyze mentions',
-        mentions: [],
-        timestamp: new Date().toISOString(),
-      },
+      { error: 'Erreur lors de l\'analyse R\u00eami', mentions: [], timestamp: new Date().toISOString() },
       { status: 500 }
     );
   }
