@@ -38,7 +38,7 @@ export default function Dashboard() {
     try {
       // Step 1: Fetch raw mentions
       const mentionsRes = await fetch('/api/mentions');
-      if (!mentionsRes.ok) throw new Error('Erreur lors de la récupération des mentions');
+      if (!mentionsRes.ok) throw new Error('Erreur lors de la r\u00e9cup\u00e9ration des mentions');
       const mentionsData = await mentionsRes.json();
       const rawMentions = mentionsData.mentions || [];
 
@@ -48,14 +48,14 @@ export default function Dashboard() {
         return;
       }
 
-      // Step 2: Analyze with Claude
+      // Step 2: R\u00eami searching
       const analyzeRes = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mentions: rawMentions }),
       });
 
-      if (!analyzeRes.ok) throw new Error('Erreur lors de l\'analyse Claude');
+      if (!analyzeRes.ok) throw new Error('Erreur lors de l\'analyse R\u00eami');
       const analyzeData = await analyzeRes.json();
       const analyzed: AnalyzedMention[] = analyzeData.mentions || [];
 
@@ -79,7 +79,7 @@ export default function Dashboard() {
   // Initial load
   useEffect(() => {
     fetchAndAnalyze();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Auto-polling
@@ -88,11 +88,9 @@ export default function Dashboard() {
       fetchAndAnalyze();
       setNextRefreshIn(POLL_INTERVAL);
     }, POLL_INTERVAL * 1000);
-
     countdownRef.current = setInterval(() => {
       setNextRefreshIn((prev) => Math.max(0, prev - 1));
     }, 1000);
-
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (countdownRef.current) clearInterval(countdownRef.current);
@@ -143,144 +141,108 @@ export default function Dashboard() {
   const criticalCount = mentions.filter((m) => m.analysis.importance === 'critical').length;
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen bg-gray-950 text-gray-100">
       {/* Header */}
-      <header
-        className="sticky top-0 z-50 border-b"
-        style={{
-          background: 'rgba(10,10,15,0.95)',
-          backdropFilter: 'blur(12px)',
-          borderColor: '#1e1e2e',
-        }}
-      >
-        <div className="max-w-screen-2xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+      <header className="border-b border-gray-800 bg-gray-900/80 backdrop-blur-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
           {/* Left: subject name */}
-          <div className="flex items-center gap-3 min-w-0">
-            <div
-              className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)' }}
-            >
-              <Radio size={14} className="text-indigo-400" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-slate-500 uppercase tracking-widest hidden sm:block">
-                  Surveillance active
-                </span>
-              </div>
-              <h1 className="font-bold text-white text-sm sm:text-base truncate">
-                {SUBJECT_NAME}
-              </h1>
+          <div className="flex items-center gap-3">
+            <Radio className="w-5 h-5 text-blue-400 animate-pulse" />
+            <div>
+              <p className="text-xs text-gray-400 uppercase tracking-wider">Surveillance active</p>
+              <h1 className="text-xl font-bold text-white">{SUBJECT_NAME}</h1>
             </div>
           </div>
 
           {/* Center: live + alerts */}
           <div className="flex items-center gap-3">
+            <LiveIndicator />
             {criticalCount > 0 && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/30 animate-pulse">
-                <AlertTriangle size={11} className="text-red-400" />
-                <span className="text-xs font-bold text-red-400">{criticalCount} critique{criticalCount > 1 ? 's' : ''}</span>
+              <div className="flex items-center gap-1 bg-red-500/20 text-red-400 px-3 py-1 rounded-full text-sm border border-red-500/30">
+                <AlertTriangle className="w-4 h-4" />
+                <span>{criticalCount} critique{criticalCount > 1 ? 's' : ''}</span>
               </div>
             )}
-            <LiveIndicator isLoading={isLoading} nextRefreshIn={nextRefreshIn} />
           </div>
 
           {/* Right: actions */}
           <div className="flex items-center gap-2">
-            <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-slate-500">
-              <Cpu size={10} className="text-indigo-400" />
-              <span>Claude AI</span>
+            <div className="flex items-center gap-1.5 bg-purple-500/20 text-purple-300 px-3 py-1.5 rounded-full text-xs border border-purple-500/30">
+              <Cpu className="w-3.5 h-3.5" />
+              <span>Powered by R\u00eami</span>
             </div>
             {lastRefresh && (
-              <span className="hidden md:block text-[10px] text-slate-600">
+              <span className="text-xs text-gray-500">
                 {lastRefresh.toLocaleTimeString('fr-FR')}
               </span>
             )}
             <button
               onClick={handleManualRefresh}
               disabled={isLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white border border-[#1e1e2e] hover:border-indigo-500/40 transition-all disabled:opacity-50"
-              style={{ background: '#12121a' }}
+              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 text-white px-3 py-1.5 rounded-lg text-sm transition-colors"
             >
-              <RefreshCw size={12} className={isLoading ? 'animate-spin' : ''} />
-              <span className="hidden sm:inline">Refresh</span>
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
             </button>
             <button
               onClick={handleExport}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white border border-[#1e1e2e] hover:border-indigo-500/40 transition-all"
-              style={{ background: '#12121a' }}
+              className="flex items-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg text-sm transition-colors"
             >
-              <Download size={12} />
-              <span className="hidden sm:inline">Export</span>
+              <Download className="w-4 h-4" />
+              Export
             </button>
           </div>
         </div>
       </header>
 
       {/* Main content */}
-      <div className="flex-1 max-w-screen-2xl mx-auto w-full px-4 py-6 flex gap-6">
+      <main className="max-w-7xl mx-auto px-4 py-6 flex gap-6">
         {/* Left: Feed */}
-        <div className="flex-1 min-w-0 space-y-4">
+        <div className="flex-1 min-w-0">
           {/* Platform tabs */}
-          <div
-            className="rounded-xl border p-3"
-            style={{ background: '#12121a', borderColor: '#1e1e2e' }}
-          >
-            <PlatformTabs
-              active={activePlatform}
-              onChange={setActivePlatform}
-              counts={platformCounts}
-            />
-          </div>
+          <PlatformTabs
+            activePlatform={activePlatform}
+            onPlatformChange={setActivePlatform}
+            counts={platformCounts}
+          />
 
           {/* Filter bar */}
-          <div
-            className="rounded-xl border p-3"
-            style={{ background: '#12121a', borderColor: '#1e1e2e' }}
-          >
-            <FilterBar filters={filters} onChange={setFilters} />
-          </div>
+          <FilterBar filters={filters} onChange={setFilters} />
 
           {/* Results summary */}
-          <div className="flex items-center justify-between px-1">
-            <span className="text-xs text-slate-500">
-              {filteredMentions.length} mention{filteredMentions.length !== 1 ? 's' : ''} affichée{filteredMentions.length !== 1 ? 's' : ''}
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-gray-400">
+              {filteredMentions.length} mention{filteredMentions.length !== 1 ? 's' : ''} affich\u00e9e{filteredMentions.length !== 1 ? 's' : ''}
               {filteredMentions.length !== mentions.length && ` (sur ${mentions.length})`}
-            </span>
+            </p>
             {isLoading && (
-              <span className="text-xs text-indigo-400 flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping" />
-                Analyse Claude en cours…
-              </span>
+              <div className="flex items-center gap-2 text-purple-400 text-sm">
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>R\u00eami searching…</span>
+              </div>
             )}
           </div>
 
           {/* Error */}
           {error && (
-            <div
-              className="rounded-xl border p-4 flex items-center gap-3"
-              style={{ background: 'rgba(239,68,68,0.05)', borderColor: 'rgba(239,68,68,0.2)' }}
-            >
-              <AlertTriangle size={16} className="text-red-400 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-red-400">Erreur de récupération</p>
-                <p className="text-xs text-red-400/70 mt-0.5">{error}</p>
-              </div>
+            <div className="mb-4 p-4 bg-red-900/30 border border-red-700 rounded-xl">
+              <p className="text-red-400 font-medium flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                Erreur de r\u00e9cup\u00e9ration
+              </p>
+              <p className="text-red-300 text-sm mt-1">{error}</p>
             </div>
           )}
 
           {/* Feed */}
           {!isLoading && filteredMentions.length === 0 && !error && (
-            <div
-              className="rounded-xl border p-12 text-center"
-              style={{ background: '#12121a', borderColor: '#1e1e2e' }}
-            >
-              <div className="text-4xl mb-3">📡</div>
-              <p className="text-slate-400 text-sm font-medium">Aucune mention trouvée</p>
-              <p className="text-slate-600 text-xs mt-1">
+            <div className="text-center py-16 text-gray-500">
+              <div className="text-4xl mb-3">\uD83D\uDCE1</div>
+              <p className="text-lg font-medium">Aucune mention trouv\u00e9e</p>
+              <p className="text-sm mt-1">
                 {mentions.length > 0
                   ? 'Essayez de modifier vos filtres'
-                  : 'Configurez vos clés API puis actualisez'}
+                  : 'Configurez vos cl\u00e9s API puis actualisez'}
               </p>
             </div>
           )}
@@ -297,22 +259,20 @@ export default function Dashboard() {
         </div>
 
         {/* Right: Stats sidebar */}
-        <aside className="hidden lg:block w-72 xl:w-80 flex-shrink-0">
-          <div className="sticky top-20">
-            <div className="mb-4 flex items-center justify-between">
-              <span className="text-xs text-slate-400 uppercase tracking-widest">Statistiques</span>
-              <span className="text-[10px] text-slate-600">Live</span>
-            </div>
-            <StatsPanel mentions={mentions} />
+        <aside className="w-80 shrink-0">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Statistiques</h2>
+            <LiveIndicator size="sm" label="Live" />
           </div>
+          <StatsPanel mentions={mentions} />
         </aside>
-      </div>
+      </main>
 
       {/* Footer */}
-      <footer className="border-t border-[#1e1e2e] py-3 px-4">
-        <div className="max-w-screen-2xl mx-auto flex items-center justify-between text-[10px] text-slate-600">
-          <span>Social Listener · Powered by Claude AI + Tavily Search</span>
-          <span>Rafraîchissement auto toutes les {POLL_INTERVAL}s</span>
+      <footer className="border-t border-gray-800 mt-8 py-4">
+        <div className="max-w-7xl mx-auto px-4 flex items-center justify-between text-xs text-gray-600">
+          <span>Social Listener &middot; Powered by R\u00eami</span>
+          <span>Rafra\u00eechissement auto toutes les {POLL_INTERVAL}s</span>
         </div>
       </footer>
     </div>
