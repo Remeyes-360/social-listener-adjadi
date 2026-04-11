@@ -53,7 +53,6 @@ function hasActiveFilters(filters: Filters): boolean {
 
 export function FilterBar({ filters, onChange }: FilterBarProps) {
   const active = hasActiveFilters(filters);
-
   const reset = () =>
     onChange({ sentiment: 'all', importance: 'all', context: 'all', language: 'all' });
 
@@ -63,45 +62,33 @@ export function FilterBar({ filters, onChange }: FilterBarProps) {
         <SlidersHorizontal size={13} />
         <span className="text-xs">Filtres</span>
       </div>
-
       <select
         value={filters.sentiment}
         onChange={(e) => onChange({ ...filters, sentiment: e.target.value as Sentiment | 'all' })}
         className={selectStyle}
       >
         {sentimentOptions.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
+          <option key={o.value} value={o.value}>{o.label}</option>
         ))}
       </select>
-
       <select
         value={filters.importance}
-        onChange={(e) =>
-          onChange({ ...filters, importance: e.target.value as ImportanceLevel | 'all' })
-        }
+        onChange={(e) => onChange({ ...filters, importance: e.target.value as ImportanceLevel | 'all' })}
         className={selectStyle}
       >
         {importanceOptions.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
+          <option key={o.value} value={o.value}>{o.label}</option>
         ))}
       </select>
-
       <select
         value={filters.context}
         onChange={(e) => onChange({ ...filters, context: e.target.value as Context | 'all' })}
         className={selectStyle}
       >
         {contextOptions.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
+          <option key={o.value} value={o.value}>{o.label}</option>
         ))}
       </select>
-
       {active && (
         <button
           onClick={reset}
