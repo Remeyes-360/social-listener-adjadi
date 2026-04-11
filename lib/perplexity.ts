@@ -40,7 +40,7 @@ async function analyzeSingleMention(
           {
             role: 'system',
             content:
-              'Tu es R\u00eami, expert en analyse de sentiment. R\u00e9ponds uniquement en JSON valide sans aucun markdown ni explication.',
+              'Tu es un expert en social listening et analyse de sentiment. R\u00e9ponds uniquement en JSON valide sans aucun markdown ni explication.',
           },
           { role: 'user', content: prompt },
         ],
@@ -56,6 +56,7 @@ async function analyzeSingleMention(
 
     const data = await response.json();
     const raw = data.choices?.[0]?.message?.content || '{}';
+
     // Clean possible markdown
     const cleaned = raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim();
     const parsed = JSON.parse(cleaned);
@@ -63,17 +64,19 @@ async function analyzeSingleMention(
     return {
       ...mention,
       analysis: {
-        sentiment: (parsed.sentiment as Sentiment) || 'neutral',
-        confidence: Number(parsed.confidence) || 50,
-        summary: parsed.summary || mention.content.slice(0, 100),
-        context: (parsed.context as Context) || 'other',
-        importance: (parsed.importance as ImportanceLevel) || 'low',
+        sentiment: (['positive', 'negative', 'neutral'].includes(parsed.sentiment)
+          ? parsed.sentiment
+          : 'neutral') as Sentiment,
+        confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 50,
+        summary: typeof parsed.summary === 'string' ? parsed.summary : mention.content.slice(0, 100),
+        context: (parsed.context || 'other') as Context,
+        importance: (parsed.importance || 'low') as ImportanceLevel,
         language: parsed.language || 'fr',
       },
       analyzedAt: new Date().toISOString(),
     };
-  } catch (error) {
-    console.error('R\u00eami analysis error:', error);
+  } catch (err) {
+    console.error('Social listening analysis error for mention', mention.id, err);
     return defaultAnalysis(mention);
   }
 }
@@ -82,13 +85,10 @@ export async function analyzeMentions(
   apiKey: string,
   mentions: RawMention[]
 ): Promise<AnalyzedMention[]> {
-  // Pour ne pas surcharger l'API, on limite a 5 appels en parallele
   const results: AnalyzedMention[] = [];
-  const chunkSize = 5;
-  for (let i = 0; i < mentions.length; i += chunkSize) {
-    const chunk = mentions.slice(i, i + chunkSize);
-    const analyzed = await Promise.all(chunk.map((m) => analyzeSingleMention(apiKey, m)));
-    results.push(...analyzed);
+  for (const mention of mentions) {
+    const analyzed = await analyzeSingleMention(apiKey, mention);
+    results.push(analyzed);
   }
   return results;
 }
