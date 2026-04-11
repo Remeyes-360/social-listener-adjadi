@@ -14,7 +14,7 @@ export interface RawMention {
   title?: string;
   content: string;
   platform: Platform;
-  author: string;
+    author?: string;
   publishedAt?: string;
   score?: number;
   engagement?: {
