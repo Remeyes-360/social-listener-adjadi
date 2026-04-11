@@ -5,7 +5,7 @@ import { Sentiment } from '@/lib/types';
 
 interface SentimentBadgeProps {
   sentiment: Sentiment;
-  confidence: number;
+    confidence?: number;
 }
 
 export function SentimentBadge({ sentiment, confidence }: SentimentBadgeProps) {
