@@ -84,7 +84,7 @@ async function analyzeSingleMention(apiKey: string, mention: RawMention): Promis
       context: ['political', 'professional', 'media', 'personal', 'other'].includes(parsed.context)
         ? parsed.context
         : 'other',
-      importance: ['critical', 'notable', 'low'].includes(parsed.importance)
+      importance: ['critical', 'high', 'medium', 'low'].includes(parsed.importance)
         ? parsed.importance
         : 'low',
       language: parsed.language || 'fr',
