@@ -22,7 +22,7 @@ Real-time social media monitoring dashboard powered by **Social listening** (Per
 - **Perplexity AI API** (`llama-3.1-sonar-small-128k-online`) for Social listening analysis
 - Deployed on **Vercel**
 
-## Setup
+## Setup  
 
 1. Clone and install:
 ```bash
