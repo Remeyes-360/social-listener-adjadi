@@ -1,4 +1,5 @@
 import { RawMention, AnalyzedMention, Sentiment, Context, ImportanceLevel } from './types';
+import { SUBJECT_NAME } from './platforms';
 
 const PERPLEXITY_API_URL = 'https://api.perplexity.ai/chat/completions';
 
@@ -22,11 +23,25 @@ async function analyzeSingleMention(
   mention: RawMention
 ): Promise<AnalyzedMention> {
   try {
-    if (!apiKey || apiKey.includes('VOTRE_CLE') || apiKey.length < 20) {
+    if (!apiKey || apiKey.length < 20) {
       return defaultAnalysis(mention);
     }
 
-    const prompt = `Analyse cette mention sur les r\u00e9seaux sociaux et retourne UNIQUEMENT un objet JSON valide (sans markdown, sans code block) avec les champs suivants:\n- sentiment: "positive", "negative" ou "neutral"\n- confidence: nombre entier entre 0 et 100\n- summary: r\u00e9sum\u00e9 en 1 phrase courte\n- context: "customer_service", "product_feedback", "brand_mention", "crisis", "professional" ou "other"\n- importance: "critical", "high", "medium" ou "low"\n- language: code ISO 2 lettres ("fr" ou "en")\n\nMention: "${mention.content.slice(0, 300)}"\nPlateforme: ${mention.platform}\nAuteur: ${mention.author || 'inconnu'}`;
+    const prompt = `You are an expert social media analyst for "${SUBJECT_NAME}". Analyze this mention and return ONLY a valid JSON object with no markdown, no code block, no explanation.
+
+Mention URL: ${mention.url}
+Title: ${mention.title}
+Content: ${mention.content.slice(0, 600)}
+Platform: ${mention.platform}
+Author: ${mention.author || 'unknown'}
+
+Return JSON with exactly these fields:
+- sentiment: "positive", "negative", or "neutral"
+- confidence: integer 0-100
+- summary: one impactful sentence summarizing this mention
+- context: "political", "professional", "media", "personal", or "other"
+- importance: "critical" (viral/major news), "high" (relevant), "medium" (moderate), or "low" (minor)
+- language: ISO 639-1 code (e.g. "fr", "en")`;
 
     const response = await fetch(PERPLEXITY_API_URL, {
       method: 'POST',
@@ -35,12 +50,12 @@ async function analyzeSingleMention(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.1-sonar-small-128k-online',
+        model: 'sonar-pro',
         messages: [
           {
             role: 'system',
             content:
-              'Tu es un expert en social listening et analyse de sentiment. R\u00e9ponds uniquement en JSON valide sans aucun markdown ni explication.',
+              'You are an expert in social listening and sentiment analysis for public figures and political leaders. Respond ONLY in valid JSON, no markdown, no explanation.',
           },
           { role: 'user', content: prompt },
         ],
@@ -58,7 +73,7 @@ async function analyzeSingleMention(
     const raw = data.choices?.[0]?.message?.content || '{}';
 
     // Clean possible markdown
-    const cleaned = raw.replace(/```json?\s*/g, '').replace(/```/g, '').trim();
+    const cleaned = raw.replace(/```json\s*/g, '').replace(/```/g, '').trim();
     const parsed = JSON.parse(cleaned);
 
     return {
@@ -67,7 +82,7 @@ async function analyzeSingleMention(
         sentiment: (['positive', 'negative', 'neutral'].includes(parsed.sentiment)
           ? parsed.sentiment
           : 'neutral') as Sentiment,
-        confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 50,
+        confidence: typeof parsed.confidence === 'number' ? Math.max(0, Math.min(100, parsed.confidence)) : 50,
         summary: typeof parsed.summary === 'string' ? parsed.summary : mention.content.slice(0, 100),
         context: (parsed.context || 'other') as Context,
         importance: (parsed.importance || 'low') as ImportanceLevel,
@@ -76,7 +91,7 @@ async function analyzeSingleMention(
       analyzedAt: new Date().toISOString(),
     };
   } catch (err) {
-    console.error('Social listening analysis error for mention', mention.id, err);
+    console.error('Perplexity analysis error for mention', mention.id, err);
     return defaultAnalysis(mention);
   }
 }
@@ -86,9 +101,16 @@ export async function analyzeMentions(
   mentions: RawMention[]
 ): Promise<AnalyzedMention[]> {
   const results: AnalyzedMention[] = [];
-  for (const mention of mentions) {
-    const analyzed = await analyzeSingleMention(apiKey, mention);
-    results.push(analyzed);
+  // Process in batches of 3 to respect rate limits
+  const batchSize = 3;
+  for (let i = 0; i < mentions.length; i += batchSize) {
+    const batch = mentions.slice(i, i + batchSize);
+    const analyzed = await Promise.all(batch.map((m) => analyzeSingleMention(apiKey, m)));
+    results.push(...analyzed);
+    // Small delay between batches
+    if (i + batchSize < mentions.length) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
   }
   return results;
 }
