@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { AnalyzedMention, Platform } from '@/lib/types';
 import { SUBJECT_NAME } from '@/lib/platforms';
 import { MentionCard } from '@/components/MentionCard';
 import { PlatformTabs } from '@/components/PlatformTabs';
 import { FilterBar, Filters } from '@/components/FilterBar';
-import { StatsPanel } from '@/components/StatsPanel';
+const StatsPanel = dynamic(() => import('@/components/StatsPanel').then(m => m.StatsPanel), { ssr: false });
 import { LiveIndicator } from '@/components/LiveIndicator';
 import { RefreshCw, Download, Radio, AlertTriangle, Zap } from 'lucide-react';
 
