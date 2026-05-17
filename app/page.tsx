@@ -1,7 +1,5 @@
-import dynamic from 'next/dynamic';
-
-const Dashboard = dynamic(() => import('./DashboardContent'), { ssr: false });
+import DashboardLoader from './DashboardLoader';
 
 export default function Page() {
-  return <Dashboard />;
+  return <DashboardLoader />;
 }
