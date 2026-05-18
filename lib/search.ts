@@ -18,6 +18,18 @@ interface PerplexitySearchResult {
   snippet?: string;
 }
 
+function extractJSON(text: string): string {
+  // Remove markdown code blocks (```json ... ``` or ``` ... ```)
+  let cleaned = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+  // Find the first [ and last ] to extract the array
+  const start = cleaned.indexOf('[');
+  const end = cleaned.lastIndexOf(']');
+  if (start !== -1 && end !== -1 && end > start) {
+    return cleaned.slice(start, end + 1);
+  }
+  return cleaned;
+}
+
 async function searchPlatform(
   apiKey: string,
   platform: Platform,
@@ -36,11 +48,11 @@ async function searchPlatform(
           {
             role: 'system',
             content:
-              'You are a social media monitoring assistant. Search for recent mentions and return results in JSON format only.',
+              'You are a social media monitoring assistant. You MUST respond with a valid JSON array only, no prose, no markdown, no explanation.',
           },
           {
             role: 'user',
-            content: `Search for recent mentions of "${query}" on social media and news. Return a JSON array of up to 8 results. Each result must have: url (string), title (string), content (string with the relevant excerpt, max 500 chars), publishedDate (ISO date string or empty string). Return ONLY the JSON array, no explanation, no markdown.`,
+            content: `Search for recent mentions of "${query}" on social media and news. Respond with ONLY a JSON array (no markdown, no code blocks, no explanation). Each element must have these exact fields: url (string), title (string), content (string, max 500 chars), publishedDate (ISO date string or empty string ""). Example format: [{"url":"https://example.com","title":"Title","content":"Content here","publishedDate":"2024-01-01"}]. Return up to 8 results.`,
           },
         ],
         temperature: 0.1,
@@ -66,10 +78,17 @@ async function searchPlatform(
     // Try to parse the content as JSON array
     let results: Array<{ url: string; title: string; content: string; publishedDate?: string }> = [];
     try {
-      const cleaned = raw.replace(/```json\s*/g, '').replace(/```/g, '').trim();
+      const cleaned = extractJSON(raw);
       const parsed = JSON.parse(cleaned);
-      if (Array.isArray(parsed)) {
+      if (Array.isArray(parsed) && parsed.length > 0) {
         results = parsed;
+      } else if (citations.length > 0) {
+        // Fallback: use citations from Perplexity
+        results = citations.map((c) => ({
+          url: c.url,
+          title: c.title || 'Sans titre',
+          content: c.snippet || raw.slice(0, 300),
+        }));
       }
     } catch {
       // Fallback: use citations from Perplexity
@@ -79,6 +98,8 @@ async function searchPlatform(
           title: c.title || 'Sans titre',
           content: c.snippet || raw.slice(0, 300),
         }));
+      } else {
+        console.error(`JSON parse failed for ${platform}. Raw:`, raw.slice(0, 200));
       }
     }
 
