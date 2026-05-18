@@ -120,3 +120,28 @@ export async function searchInstagramHashtag(
     return [];
   }
 }
+
+// Wrapper avec signature unifiee pour index.ts
+// Utilise INSTAGRAM_USER_ID si disponible, sinon tente avec l'App Token
+export async function searchInstagram(
+  accessToken: string,
+  query: string,
+  limit: number = 20
+): Promise<RawMention[]> {
+  const igUserId = process.env.INSTAGRAM_USER_ID || '';
+  if (!accessToken) return [];
+
+  // Extraire le premier hashtag significatif de la query
+  const hashtagMatch = query.match(/(shegun|adjadi|bakari|benin)/i);
+  const hashtag = hashtagMatch ? hashtagMatch[1].toLowerCase() : 'shegunbakari';
+
+  if (igUserId) {
+    // Recherche par hashtag si on a un compte Business
+    return searchInstagramHashtag(igUserId, accessToken, hashtag, limit);
+  }
+
+  // Sans igUserId: on ne peut pas faire de recherche Instagram Graph API
+  // On retourne vide et laisse Perplexity couvrir Instagram
+  console.warn('Instagram: INSTAGRAM_USER_ID not configured, skipping native search');
+  return [];
+}
