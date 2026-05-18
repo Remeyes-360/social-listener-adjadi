@@ -16,6 +16,7 @@ export interface RawMention {
   platform: Platform;
     author?: string;
   publishedAt?: string;
+  publishedDate?: string;
   score?: number;
   engagement?: {
     likes: number;
@@ -40,6 +41,7 @@ export interface PlatformConfig {
   id: Platform;
   label: string;
   query: string;
+  domains?: string[];
   color: string;
   bgColor: string;
   textColor: string;
@@ -58,9 +60,4 @@ export interface MentionsResponse {
   platform: Platform;
   timestamp: string;
   error?: string;
-}
-
-export interface AnalyzeResponse {
-  mentions: AnalyzedMention[];
-  timestamp: string;
 }
