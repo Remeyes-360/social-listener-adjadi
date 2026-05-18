@@ -1,130 +1,135 @@
 import { RawMention, Platform } from '../types';
-import { SUBJECT_NAME } from '../platforms';
+import { SUBJECT_VARIANTS } from '../platforms';
 import { searchTwitter } from './twitter';
-import { searchFacebook, fetchPagePosts } from './facebook';
-import { fetchInstagramMedia, searchInstagramHashtag } from './instagram';
-import { fetchLinkedInOrgPosts } from './linkedin';
-import { searchTikTokVideos, fetchMyTikTokVideos } from './tiktok';
+import { searchFacebook } from './facebook';
+import { searchInstagram } from './instagram';
+import { searchLinkedIn } from './linkedin';
+import { searchTikTok } from './tiktok';
 
+// =====================================================================
 // Configuration des credentials depuis les variables d'environnement
+// Supporte le fallback App Token pour Facebook (AppID|AppSecret)
+// et le Client Credentials Flow pour LinkedIn
+// =====================================================================
 const config = {
   twitter: {
     bearerToken: process.env.TWITTER_BEARER_TOKEN || '',
   },
   facebook: {
-    accessToken: process.env.FACEBOOK_ACCESS_TOKEN || '',
-    pageId: process.env.FACEBOOK_PAGE_ID || '',
+    // Utilise l'Access Token si disponible, sinon App Token (AppID|AppSecret)
+    accessToken: process.env.FACEBOOK_ACCESS_TOKEN
+      || (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET
+          ? `${process.env.FACEBOOK_APP_ID}|${process.env.FACEBOOK_APP_SECRET}`
+          : ''),
+    appId: process.env.FACEBOOK_APP_ID || '',
+    appSecret: process.env.FACEBOOK_APP_SECRET || '',
   },
   instagram: {
     accessToken: process.env.INSTAGRAM_ACCESS_TOKEN || '',
     igUserId: process.env.INSTAGRAM_USER_ID || '',
   },
   linkedin: {
+    // Supporte Client Credentials (clientId:clientSecret en base64) ou Access Token
     accessToken: process.env.LINKEDIN_ACCESS_TOKEN || '',
-    organizationId: process.env.LINKEDIN_ORGANIZATION_ID || '',
+    clientId: process.env.LINKEDIN_CLIENT_ID || '',
+    clientSecret: process.env.LINKEDIN_CLIENT_SECRET || '',
   },
   tiktok: {
     accessToken: process.env.TIKTOK_ACCESS_TOKEN || '',
     clientKey: process.env.TIKTOK_CLIENT_KEY || '',
+    clientSecret: process.env.TIKTOK_CLIENT_SECRET || '',
     researchToken: process.env.TIKTOK_RESEARCH_TOKEN || '',
   },
 };
 
-// Charge les mentions pour une plateforme spécifique
+// Normalise les variantes pour la recherche
+const SEARCH_QUERY = SUBJECT_VARIANTS.map((v) => `"${v}"`).join(' OR ');
+
+// Charge les mentions pour une plateforme specifique
 export async function fetchPlatformMentions(
   platform: Platform,
   limit: number = 20
 ): Promise<RawMention[]> {
-  const subject = SUBJECT_NAME;
+  try {
+    switch (platform) {
+      case 'twitter':
+        if (!config.twitter.bearerToken) return [];
+        return await searchTwitter(config.twitter.bearerToken, SEARCH_QUERY, limit);
 
-  switch (platform) {
-    case 'twitter': {
-      if (!config.twitter.bearerToken) return [];
-      return searchTwitter(config.twitter.bearerToken, subject, limit);
-    }
+      case 'facebook':
+        if (!config.facebook.accessToken) return [];
+        return await searchFacebook(config.facebook.accessToken, SEARCH_QUERY, limit);
 
-    case 'facebook': {
-      if (!config.facebook.accessToken) return [];
-      const results: RawMention[] = [];
-      // Recherche publique + posts de la page
-      const [searchResults, pageResults] = await Promise.allSettled([
-        searchFacebook(config.facebook.accessToken, subject, limit),
-        config.facebook.pageId
-          ? fetchPagePosts(config.facebook.pageId, config.facebook.accessToken, limit)
-          : Promise.resolve([]),
-      ]);
-      if (searchResults.status === 'fulfilled') results.push(...searchResults.value);
-      if (pageResults.status === 'fulfilled') results.push(...pageResults.value);
-      return results;
-    }
-
-    case 'instagram': {
-      if (!config.instagram.accessToken || !config.instagram.igUserId) return [];
-      const [ownMedia, hashtagResults] = await Promise.allSettled([
-        fetchInstagramMedia(config.instagram.igUserId, config.instagram.accessToken, limit),
-        searchInstagramHashtag(
-          config.instagram.igUserId,
-          config.instagram.accessToken,
-          subject.split(' ')[1] || subject, // ex: "ADJADI"
-          limit
-        ),
-      ]);
-      const results: RawMention[] = [];
-      if (ownMedia.status === 'fulfilled') results.push(...ownMedia.value);
-      if (hashtagResults.status === 'fulfilled') results.push(...hashtagResults.value);
-      return results;
-    }
-
-    case 'linkedin': {
-      if (!config.linkedin.accessToken || !config.linkedin.organizationId) return [];
-      return fetchLinkedInOrgPosts(
-        config.linkedin.organizationId,
-        config.linkedin.accessToken,
-        limit
-      );
-    }
-
-    case 'tiktok': {
-      if (!config.tiktok.accessToken) return [];
-      // Priorité Research API si token disponible, sinon Display API
-      if (config.tiktok.researchToken) {
-        return searchTikTokVideos(
-          config.tiktok.clientKey,
-          config.tiktok.researchToken,
-          subject,
+      case 'instagram':
+        if (!config.instagram.accessToken && !config.facebook.accessToken) return [];
+        // Instagram Business search uses Graph API - falls back to hashtag search
+        return await searchInstagram(
+          config.instagram.accessToken || config.facebook.accessToken,
+          SEARCH_QUERY,
           limit
         );
-      }
-      return fetchMyTikTokVideos(config.tiktok.accessToken, limit);
-    }
 
-    default:
-      return [];
+      case 'linkedin':
+        if (!config.linkedin.accessToken && !config.linkedin.clientId) return [];
+        return await searchLinkedIn(
+          config.linkedin.accessToken,
+          config.linkedin.clientId,
+          config.linkedin.clientSecret,
+          SEARCH_QUERY,
+          limit
+        );
+
+      case 'tiktok':
+        if (!config.tiktok.clientKey && !config.tiktok.accessToken) return [];
+        return await searchTikTok(
+          config.tiktok.accessToken,
+          config.tiktok.clientKey,
+          config.tiktok.clientSecret,
+          SEARCH_QUERY,
+          limit
+        );
+
+      default:
+        return [];
+    }
+  } catch (error) {
+    console.error(`Native connector error for ${platform}:`, error);
+    return [];
   }
 }
 
-// Charge toutes les plateformes en parallèle
+// Charge les mentions pour toutes les plateformes en parallele
 export async function fetchAllPlatformMentions(
-  limit: number = 20
+  platformFilter?: Platform
 ): Promise<RawMention[]> {
-  const platforms: Platform[] = ['twitter', 'facebook', 'instagram', 'linkedin', 'tiktok'];
+  const platforms: Platform[] = platformFilter
+    ? [platformFilter]
+    : ['twitter', 'facebook', 'instagram', 'linkedin', 'tiktok'];
 
   const results = await Promise.allSettled(
-    platforms.map((p) => fetchPlatformMentions(p, limit))
+    platforms.map((p) => fetchPlatformMentions(p, 15))
   );
 
-  return results
-    .filter((r): r is PromiseFulfilledResult<RawMention[]> => r.status === 'fulfilled')
-    .flatMap((r) => r.value);
+  const mentions: RawMention[] = [];
+  for (const result of results) {
+    if (result.status === 'fulfilled') {
+      mentions.push(...result.value);
+    }
+  }
+
+  return mentions;
 }
 
-// Vérifie quelles plateformes sont configurées
+// Alias pour compatibilite avec app/api/mentions/route.ts
+export const searchAllSocialPlatforms = fetchAllPlatformMentions;
+
+// Retourne les plateformes actuellement configurees
 export function getConfiguredPlatforms(): Platform[] {
-  const configured: Platform[] = [];
-  if (config.twitter.bearerToken) configured.push('twitter');
-  if (config.facebook.accessToken) configured.push('facebook');
-  if (config.instagram.accessToken && config.instagram.igUserId) configured.push('instagram');
-  if (config.linkedin.accessToken && config.linkedin.organizationId) configured.push('linkedin');
-  if (config.tiktok.accessToken) configured.push('tiktok');
-  return configured;
+  const platforms: Platform[] = [];
+  if (config.twitter.bearerToken) platforms.push('twitter');
+  if (config.facebook.accessToken) platforms.push('facebook');
+  if (config.instagram.accessToken || config.facebook.accessToken) platforms.push('instagram');
+  if (config.linkedin.accessToken || config.linkedin.clientId) platforms.push('linkedin');
+  if (config.tiktok.clientKey || config.tiktok.accessToken) platforms.push('tiktok');
+  return platforms;
 }
