@@ -9,7 +9,7 @@ function defaultAnalysis(mention: RawMention): AnalyzedMention {
     analysis: {
       sentiment: 'neutral' as Sentiment,
       confidence: 50,
-      summary: mention.content.slice(0, 100) + (mention.content.length > 100 ? '...' : ''),
+      summary: mention.content?.slice(0, 100) + (mention.content?.length > 100 ? '...' : ''),
       context: 'other' as Context,
       importance: 'low' as ImportanceLevel,
       language: 'fr',
@@ -31,7 +31,7 @@ async function analyzeSingleMention(
 
 Mention URL: ${mention.url}
 Title: ${mention.title}
-Content: ${mention.content.slice(0, 600)}
+Content: ${mention.content?.slice(0, 400)}
 Platform: ${mention.platform}
 Author: ${mention.author || 'unknown'}
 
@@ -50,7 +50,7 @@ Return JSON with exactly these fields:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'sonar-pro',
+        model: 'sonar',
         messages: [
           {
             role: 'system',
@@ -60,38 +60,43 @@ Return JSON with exactly these fields:
           { role: 'user', content: prompt },
         ],
         temperature: 0.1,
-        max_tokens: 300,
+        max_tokens: 200,
       }),
     });
 
     if (!response.ok) {
-      console.error('Perplexity API error:', response.status, await response.text());
+      console.error(`Perplexity analysis error: ${response.status}`);
       return defaultAnalysis(mention);
     }
 
     const data = await response.json();
-    const raw = data.choices?.[0]?.message?.content || '{}';
+    const content = data.choices?.[0]?.message?.content || '';
 
-    // Clean possible markdown
-    const cleaned = raw.replace(/```json\s*/g, '').replace(/```/g, '').trim();
-    const parsed = JSON.parse(cleaned);
+    // Try to extract JSON from the response
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return defaultAnalysis(mention);
 
+    const parsed = JSON.parse(jsonMatch[0]);
     return {
       ...mention,
       analysis: {
         sentiment: (['positive', 'negative', 'neutral'].includes(parsed.sentiment)
           ? parsed.sentiment
           : 'neutral') as Sentiment,
-        confidence: typeof parsed.confidence === 'number' ? Math.max(0, Math.min(100, parsed.confidence)) : 50,
-        summary: typeof parsed.summary === 'string' ? parsed.summary : mention.content.slice(0, 100),
-        context: (parsed.context || 'other') as Context,
-        importance: (parsed.importance || 'low') as ImportanceLevel,
+        confidence: Number(parsed.confidence) || 50,
+        summary: parsed.summary || mention.content?.slice(0, 100) || '',
+        context: (['political', 'professional', 'media', 'personal', 'other'].includes(parsed.context)
+          ? parsed.context
+          : 'other') as Context,
+        importance: (['critical', 'high', 'medium', 'low'].includes(parsed.importance)
+          ? parsed.importance
+          : 'low') as ImportanceLevel,
         language: parsed.language || 'fr',
       },
       analyzedAt: new Date().toISOString(),
     };
-  } catch (err) {
-    console.error('Perplexity analysis error for mention', mention.id, err);
+  } catch (error) {
+    console.error('Error analyzing mention:', error);
     return defaultAnalysis(mention);
   }
 }
@@ -101,15 +106,15 @@ export async function analyzeMentions(
   mentions: RawMention[]
 ): Promise<AnalyzedMention[]> {
   const results: AnalyzedMention[] = [];
-  // Process in batches of 3 to respect rate limits
-  const batchSize = 3;
+  // Process in batches of 5 (faster with sonar model)
+  const batchSize = 5;
   for (let i = 0; i < mentions.length; i += batchSize) {
     const batch = mentions.slice(i, i + batchSize);
     const analyzed = await Promise.all(batch.map((m) => analyzeSingleMention(apiKey, m)));
     results.push(...analyzed);
-    // Small delay between batches
+    // Small delay between batches to avoid rate limits
     if (i + batchSize < mentions.length) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 300));
     }
   }
   return results;
