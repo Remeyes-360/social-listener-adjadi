@@ -36,14 +36,19 @@ async function searchPlatform(
   platform: PlatformConfig
 ): Promise<RawMention[]> {
   try {
+    // Plateformes avec domain filter : utiliser 'month' pour plus de resultats
+    const hasDomainFilter = platform.domains && platform.domains.length > 0;
+    const recency = hasDomainFilter ? 'month' : 'week';
+    const maxResults = hasDomainFilter ? 15 : 10;
+
     const body: Record<string, unknown> = {
       query: platform.query,
-      max_results: 10,
-      search_recency_filter: 'week',
+      max_results: maxResults,
+      search_recency_filter: recency,
     };
 
     // Utiliser search_domain_filter si des domaines sont definis
-    if (platform.domains && platform.domains.length > 0) {
+    if (hasDomainFilter) {
       body.search_domain_filter = platform.domains;
     }
 
@@ -71,27 +76,29 @@ async function searchPlatform(
     }
 
     // Mapper les resultats en RawMention
-    const mapped: RawMention[] = results.slice(0, 8).map((result, idx) => ({
+    const mapped: RawMention[] = results.slice(0, maxResults).map((result, idx) => ({
       id: `${platform.id}-${Date.now()}-${idx}`,
       url: result.url || `https://perplexity.ai/search?q=${encodeURIComponent(platform.query)}`,
       title: result.title || 'Sans titre',
       content: result.snippet || '',
-      platform: detectPlatform(result.url || ''),
+      platform: hasDomainFilter ? platform.id as Platform : detectPlatform(result.url || ''),
       publishedDate: result.date,
       score: 1,
     }));
 
     // Post-filtrage : ne garder que les resultats qui mentionnent une variante
-    // On accepte aussi les resultats sans snippet (titre seul) si le titre correspond
+    // Pour les plateformes avec domain filter (FB/TikTok), filtre assoupli car
+    // le snippet peut etre court ou en langue locale
     const filtered = mapped.filter((m) => {
       const textToCheck = `${m.title || ''} ${m.content || ''}`;
-      // Si le texte est trop court pour filtrer, on accepte (requete suffisamment ciblee)
-      if (textToCheck.trim().length < 30) return true;
+      // Si le texte est trop court pour filtrer, on accepte
+      if (textToCheck.trim().length < 20) return true;
+      // Pour FB/TikTok avec domain filter : seuil plus bas
+      if (hasDomainFilter && textToCheck.trim().length < 80) return true;
       return isRelevantMention(textToCheck);
     });
 
-    console.log(`Platform ${platform.id}: ${results.length} results, ${filtered.length} after filter`);
-
+    console.log(`Platform ${platform.id}: ${results.length} results, ${filtered.length} after filter (recency: ${recency})`);
     return filtered;
   } catch (error) {
     console.error(`Search error for ${platform.id}:`, error);
