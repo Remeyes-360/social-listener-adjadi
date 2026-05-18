@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { AnalyzedMention, Platform } from '@/lib/types';
+import { AnalyzedMention, Platform, RawMention } from '@/lib/types';
 import { SUBJECT_NAME } from '@/lib/platforms';
 import { MentionCard } from '@/components/MentionCard';
 import { PlatformTabs } from '@/components/PlatformTabs';
@@ -19,11 +19,27 @@ const defaultFilters: Filters = {
   language: 'all',
 };
 
+function rawToAnalyzed(raw: RawMention): AnalyzedMention {
+  return {
+    ...raw,
+    analysis: {
+      sentiment: 'neutral' as const,
+      confidence: 50,
+      summary: raw.content?.slice(0, 120) || raw.title || '',
+      context: 'other' as const,
+      importance: 'medium' as const,
+      language: 'fr',
+    },
+    analyzedAt: new Date().toISOString(),
+  };
+}
+
 export default function Dashboard() {
   const [mentions, setMentions] = useState<AnalyzedMention[]>([]);
   const [activePlatform, setActivePlatform] = useState<Platform | 'all'>('all');
   const [filters, setFilters] = useState<Filters>(defaultFilters);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [nextRefreshIn, setNextRefreshIn] = useState(POLL_INTERVAL);
   const [error, setError] = useState<string | null>(null);
@@ -38,31 +54,52 @@ export default function Dashboard() {
       const mentionsRes = await fetch('/api/mentions');
       if (!mentionsRes.ok) throw new Error('Erreur lors de la recuperation des mentions');
       const mentionsData = await mentionsRes.json();
-      const rawMentions = mentionsData.mentions || [];
+      const rawMentions: RawMention[] = mentionsData.mentions || [];
+
       if (rawMentions.length === 0) {
         setLastRefresh(new Date());
         setIsLoading(false);
         return;
       }
-      const analyzeRes = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mentions: rawMentions }),
-      });
-      if (!analyzeRes.ok) throw new Error("Erreur lors de l'analyse Perplexity");
-      const analyzeData = await analyzeRes.json();
-      const analyzed: AnalyzedMention[] = analyzeData.mentions || [];
+
+      // Show raw mentions immediately with default analysis
+      const defaultAnalyzed = rawMentions.map(rawToAnalyzed);
       const existingIds = new Set(mentions.map((m) => m.id));
-      const newIds = new Set(analyzed.filter((m) => !existingIds.has(m.id)).map((m) => m.id));
+      const newIds = new Set(defaultAnalyzed.filter((m) => !existingIds.has(m.id)).map((m) => m.id));
       if (newIds.size > 0) {
         setNewMentionIds(newIds);
         setTimeout(() => setNewMentionIds(new Set()), 3000);
       }
-      setMentions(analyzed);
+      setMentions(defaultAnalyzed);
       setLastRefresh(new Date());
+      setIsLoading(false);
+
+      // Now try to analyze in background with timeout
+      setIsAnalyzing(true);
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 50000);
+        const analyzeRes = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mentions: rawMentions }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (analyzeRes.ok) {
+          const analyzeData = await analyzeRes.json();
+          const analyzed: AnalyzedMention[] = analyzeData.mentions || [];
+          if (analyzed.length > 0) {
+            setMentions(analyzed);
+          }
+        }
+      } catch {
+        // Analysis timed out or failed - keep raw mentions displayed
+      } finally {
+        setIsAnalyzing(false);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur inconnue');
-    } finally {
       setIsLoading(false);
     }
   }, [mentions]);
@@ -128,55 +165,58 @@ export default function Dashboard() {
   const criticalCount = mentions.filter((m) => m.analysis.importance === 'critical').length;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Radio className="w-6 h-6 text-blue-400" />
-              {SUBJECT_NAME}
-            </h1>
-            <p className="text-gray-400 text-sm mt-1">Surveillance active</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
+    <div className="min-h-screen bg-gray-950 text-gray-100">
+      {/* Header */}
+      <header className="border-b border-gray-800 bg-gray-900/50 backdrop-blur sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Radio className="text-blue-400" size={20} />
+            <div>
+              <h1 className="text-xl font-bold">{SUBJECT_NAME}</h1>
+              <p className="text-xs text-gray-400">Surveillance active</p>
+            </div>
             {criticalCount > 0 && (
-              <span className="flex items-center gap-1 bg-red-900/50 border border-red-700 text-red-300 px-3 py-1.5 rounded-full text-sm font-medium">
-                <AlertTriangle className="w-4 h-4" />
+              <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                <AlertTriangle size={10} />
                 {criticalCount} critique{criticalCount > 1 ? 's' : ''}
               </span>
             )}
-            <span className="flex items-center gap-1.5 bg-blue-900/30 border border-blue-800 text-blue-300 px-3 py-1.5 rounded-full text-sm">
-              <Zap className="w-4 h-4" /> Perplexity AI
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1 text-xs text-purple-400 bg-purple-400/10 px-2 py-1 rounded">
+              <Zap size={10} />
+              Perplexity AI
             </span>
             {lastRefresh && (
-              <span className="text-gray-500 text-xs">
+              <span className="text-xs text-gray-500">
                 {lastRefresh.toLocaleTimeString('fr-FR')}
               </span>
             )}
             <button
               onClick={handleManualRefresh}
               disabled={isLoading}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-3 py-1.5 rounded text-sm"
             >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
               Refresh
             </button>
             <button
               onClick={handleExport}
-              className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded text-sm"
             >
-              <Download className="w-4 h-4" />
+              <Download size={14} />
               Export
             </button>
           </div>
         </div>
+      </header>
 
+      <main className="max-w-7xl mx-auto px-4 py-6">
         {/* Platform Tabs */}
         <PlatformTabs
           activePlatform={activePlatform}
           onPlatformChange={setActivePlatform}
-          counts={platformCounts}
+          platformCounts={platformCounts}
         />
 
         {/* Filters */}
@@ -184,32 +224,39 @@ export default function Dashboard() {
 
         {/* Stats */}
         <div className="flex items-center justify-between mb-4">
-          <p className="text-gray-400 text-sm">
+          <span className="text-sm text-gray-400">
             {filteredMentions.length} mention{filteredMentions.length !== 1 ? 's' : ''} affichee{filteredMentions.length !== 1 ? 's' : ''}
             {filteredMentions.length !== mentions.length && ` (sur ${mentions.length})`}
-          </p>
-          {isLoading && (
-            <p className="text-blue-400 text-sm flex items-center gap-2">
-              <RefreshCw className="w-3 h-3 animate-spin" />
-              Analyse Perplexity en cours…
-            </p>
+          </span>
+          {isAnalyzing && (
+            <span className="flex items-center gap-2 text-xs text-purple-400">
+              <RefreshCw size={12} className="animate-spin" />
+              Analyse Perplexity en cours...
+            </span>
           )}
         </div>
 
         {/* Error */}
         {error && (
-          <div className="mb-4 p-4 bg-red-900/30 border border-red-700 rounded-xl">
-            <p className="text-red-300 font-medium">Erreur de recuperation</p>
-            <p className="text-red-400 text-sm mt-1">{error}</p>
+          <div className="bg-red-900/30 border border-red-700 rounded p-4 mb-4">
+            <p className="text-red-400 font-medium">Erreur de recuperation</p>
+            <p className="text-red-300 text-sm">{error}</p>
+          </div>
+        )}
+
+        {/* Loading */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-12">
+            <RefreshCw size={24} className="animate-spin text-blue-400" />
           </div>
         )}
 
         {/* Empty state */}
         {!isLoading && filteredMentions.length === 0 && !error && (
-          <div className="text-center py-20">
-            <div className="text-5xl mb-4">📡</div>
-            <h3 className="text-xl font-semibold text-gray-300 mb-2">Aucune mention trouvee</h3>
-            <p className="text-gray-500">
+          <div className="text-center py-16 text-gray-500">
+            <p className="text-4xl mb-4">📡</p>
+            <h3 className="font-semibold text-lg">Aucune mention trouvee</h3>
+            <p className="text-sm">
               {mentions.length > 0
                 ? 'Essayez de modifier vos filtres'
                 : 'Configurez votre cle PERPLEXITY_API_KEY puis actualisez'}
@@ -218,25 +265,33 @@ export default function Dashboard() {
         )}
 
         {/* Mention cards */}
-        <div className="grid gap-4">
+        <div className="space-y-3">
           {filteredMentions.map((mention) => (
-            <MentionCard key={mention.id} mention={mention} isNew={newMentionIds.has(mention.id)} />
+            <MentionCard
+              key={mention.id}
+              mention={mention}
+              isNew={newMentionIds.has(mention.id)}
+            />
           ))}
         </div>
 
         {/* Stats panel + Live */}
         {mentions.length > 0 && (
-          <div className="mt-8 grid md:grid-cols-2 gap-6">
+          <div className="mt-8">
             <StatsPanel mentions={mentions} />
-            <LiveIndicator nextRefreshIn={nextRefreshIn} totalMentions={mentions.length} />
+            <LiveIndicator
+              lastRefresh={lastRefresh}
+              nextRefreshIn={nextRefreshIn}
+              isLoading={isLoading}
+            />
           </div>
         )}
+      </main>
 
-        {/* Footer */}
-        <footer className="mt-10 text-center text-gray-600 text-xs">
-          Social Listener &middot; Powered by Perplexity AI Sonar &nbsp;|&nbsp; Rafraichissement auto toutes les heures
-        </footer>
-      </div>
+      {/* Footer */}
+      <footer className="text-center text-xs text-gray-600 py-4">
+        Social Listener · Powered by Perplexity AI Sonar&nbsp;&nbsp;|&nbsp;&nbsp;Rafraichissement auto toutes les heures
+      </footer>
     </div>
   );
 }
