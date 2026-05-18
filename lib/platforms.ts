@@ -33,7 +33,8 @@ export const PLATFORMS: PlatformConfig[] = [
   {
     id: 'facebook',
     label: 'Facebook',
-    query: `"Shegun Bakari" OR "Olushegun Adjadi Bakari" Benin`,
+    query: `site:facebook.com ("Shegun Bakari" OR "Olushegun Adjadi Bakari" OR "Adjadi Bakari") Benin`,
+    domains: ['facebook.com', 'm.facebook.com'],
     color: '#1877F2',
     bgColor: 'rgba(24,119,242,0.1)',
     textColor: '#1877F2',
@@ -49,7 +50,8 @@ export const PLATFORMS: PlatformConfig[] = [
   {
     id: 'tiktok',
     label: 'TikTok',
-    query: `Adjadi Bakari Benin ministre affaires etrangeres`,
+    query: `site:tiktok.com ("Adjadi Bakari" OR "Shegun Bakari" OR "ministre Benin affaires etrangeres")`,
+    domains: ['tiktok.com', 'www.tiktok.com'],
     color: '#010101',
     bgColor: 'rgba(1,1,1,0.1)',
     textColor: '#69C9D0',
