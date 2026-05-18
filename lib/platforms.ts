@@ -33,8 +33,9 @@ export const PLATFORMS: PlatformConfig[] = [
   {
     id: 'facebook',
     label: 'Facebook',
-    query: `site:facebook.com ("Shegun Bakari" OR "Olushegun Adjadi Bakari" OR "Adjadi Bakari") Benin`,
-    domains: ['facebook.com', 'm.facebook.com'],
+    // Recherche web large : articles qui relatent des posts Facebook sur le sujet
+    query: `("Shegun Bakari" OR "Olushegun Adjadi Bakari" OR "Adjadi Bakari") (Facebook OR "reseaux sociaux" OR "post" OR "Benin" OR "ministre")`,
+    domains: ['facebook.com', 'fenou-medias.bj', 'beninwebtv.com', 'benin24.net', 'banouto.bj', 'actu.bj', 'rtbbenin.bj', 'mediaterre.org'],
     color: '#1877F2',
     bgColor: 'rgba(24,119,242,0.1)',
     textColor: '#1877F2',
@@ -50,8 +51,9 @@ export const PLATFORMS: PlatformConfig[] = [
   {
     id: 'tiktok',
     label: 'TikTok',
-    query: `site:tiktok.com ("Adjadi Bakari" OR "Shegun Bakari" OR "ministre Benin affaires etrangeres")`,
-    domains: ['tiktok.com', 'www.tiktok.com'],
+    // Recherche web large : videos relayees sur le web ou articles citant TikTok
+    query: `("Adjadi Bakari" OR "Shegun Bakari" OR "ministre affaires etrangeres Benin") (TikTok OR video OR viral OR "reseaux sociaux")`,
+    domains: ['tiktok.com', 'fenou-medias.bj', 'beninwebtv.com', 'benin24.net', 'banouto.bj', 'actu.bj'],
     color: '#010101',
     bgColor: 'rgba(1,1,1,0.1)',
     textColor: '#69C9D0',
