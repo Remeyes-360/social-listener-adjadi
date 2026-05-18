@@ -13,12 +13,22 @@ function detectPlatform(url: string): Platform {
 }
 
 /**
+ * Normalize a string by removing diacritics and lowercasing.
+ */
+function normalize(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
  * Verifie si un texte contient au moins une variante de nom.
- * Utilise en post-filtrage leger sur le contenu retourne.
+ * Utilise normalize() pour comparer sans tenir compte des accents.
  */
 function isRelevantMention(text: string): boolean {
-  const lower = text.toLowerCase();
-  return SUBJECT_VARIANTS.some((v) => lower.includes(v.toLowerCase()));
+  const normalizedText = normalize(text);
+  return SUBJECT_VARIANTS.some((v) => normalizedText.includes(normalize(v)));
 }
 
 async function searchPlatform(
@@ -60,9 +70,7 @@ async function searchPlatform(
       return [];
     }
 
-    // Post-filtrage leger : exclure les resultats qui ne mentionnent clairement pas les noms
-    // On garde les resultats meme si le snippet est court et ne contient pas le nom
-    // car search_domain_filter + query ciblent deja correctement
+    // Mapper les resultats en RawMention
     const mapped: RawMention[] = results.slice(0, 8).map((result, idx) => ({
       id: `${platform.id}-${Date.now()}-${idx}`,
       url: result.url || `https://perplexity.ai/search?q=${encodeURIComponent(platform.query)}`,
@@ -73,17 +81,16 @@ async function searchPlatform(
       score: 1,
     }));
 
-    // Filtrer uniquement si on a des snippets substantiels qui prouvent la non-pertinence
+    // Post-filtrage : ne garder que les resultats qui mentionnent une variante
+    // On accepte aussi les resultats sans snippet (titre seul) si le titre correspond
     const filtered = mapped.filter((m) => {
-      // Si le snippet est vide ou trop court, on garde le resultat (on fait confiance a la query)
-      if (!m.content || m.content.length < 50) return true;
-      // Si le snippet est long et ne contient pas les noms, on exclut
-      return isRelevantMention(`${m.title || ''} ${m.content}`);
+      const textToCheck = `${m.title || ''} ${m.content || ''}`;
+      // Si le texte est trop court pour filtrer, on accepte (requete suffisamment ciblee)
+      if (textToCheck.trim().length < 30) return true;
+      return isRelevantMention(textToCheck);
     });
 
-    if (filtered.length === 0) {
-      console.warn(`All results filtered out for ${platform.id}`);
-    }
+    console.log(`Platform ${platform.id}: ${results.length} results, ${filtered.length} after filter`);
 
     return filtered;
   } catch (error) {
