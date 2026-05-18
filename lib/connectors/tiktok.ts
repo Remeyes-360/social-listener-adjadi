@@ -153,3 +153,26 @@ export async function fetchMyTikTokVideos(
     return [];
   }
 }
+
+// Wrapper avec signature unifiee pour index.ts
+export async function searchTikTok(
+  accessToken: string,
+  clientKey: string,
+  clientSecret: string,
+  query: string,
+  limit: number = 20
+): Promise<RawMention[]> {
+  // Essayer d'abord la Research API si les credentials sont disponibles
+  if (clientKey) {
+    try {
+      return await searchTikTokVideos(clientKey, accessToken, query, limit);
+    } catch (e) {
+      console.warn('TikTok Research API failed, trying Display API:', e);
+    }
+  }
+  // Fallback sur la Display API si on a un access token
+  if (accessToken) {
+    return await fetchMyTikTokVideos(accessToken, limit);
+  }
+  return [];
+}
