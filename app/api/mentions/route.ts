@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchAllPlatforms, searchSinglePlatform } from '@/lib/search';
-import { Platform } from '@/lib/types';
+import { searchAllSocialPlatforms } from '@/lib/connectors';
+import { Platform, RawMention } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -14,6 +15,16 @@ function getLimit(frequency: string): number {
     case '30d': return 80;
     default: return 10;
   }
+}
+
+function deduplicateMentions(mentions: RawMention[]): RawMention[] {
+  const seen = new Set<string>();
+  return mentions.filter((m) => {
+    const key = m.url || m.id;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -32,19 +43,42 @@ export async function GET(request: NextRequest) {
   const limit = getLimit(frequency);
 
   try {
-    const mentions = platform && platform !== 'all'
-      ? await searchSinglePlatform(apiKey, platform)
-      : await searchAllPlatforms(apiKey);
+    // Lancer en parallele : Perplexity (web) + connecteurs natifs (API sociales)
+    const [perplexityMentions, nativeMentions] = await Promise.allSettled([
+      platform
+        ? searchSinglePlatform(apiKey, platform)
+        : searchAllPlatforms(apiKey),
+      searchAllSocialPlatforms(platform || undefined),
+    ]);
+
+    const allMentions: RawMention[] = [
+      ...(perplexityMentions.status === 'fulfilled' ? perplexityMentions.value : []),
+      ...(nativeMentions.status === 'fulfilled' ? nativeMentions.value : []),
+    ];
+
+    // Deduplication par URL
+    const unique = deduplicateMentions(allMentions);
+
+    // Log des erreurs eventuelles
+    if (perplexityMentions.status === 'rejected') {
+      console.error('Perplexity search failed:', perplexityMentions.reason);
+    }
+    if (nativeMentions.status === 'rejected') {
+      console.error('Native connectors failed:', nativeMentions.reason);
+    }
 
     return NextResponse.json({
-      mentions: mentions.slice(0, limit),
-      platform: platform || 'all',
+      mentions: unique.slice(0, limit * 5),
       timestamp: new Date().toISOString(),
+      sources: {
+        perplexity: perplexityMentions.status === 'fulfilled' ? perplexityMentions.value.length : 0,
+        native: nativeMentions.status === 'fulfilled' ? nativeMentions.value.length : 0,
+      },
     });
   } catch (error) {
-    console.error('Mentions fetch error:', error);
+    console.error('Mentions API error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch mentions', mentions: [], timestamp: new Date().toISOString() },
+      { error: 'Internal server error', mentions: [], timestamp: new Date().toISOString() },
       { status: 500 }
     );
   }
