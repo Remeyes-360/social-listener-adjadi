@@ -1,5 +1,5 @@
 import { RawMention, Platform } from './types';
-import { PLATFORMS } from './platforms';
+import { PLATFORMS, SUBJECT_VARIANTS } from './platforms';
 
 const PERPLEXITY_SEARCH_URL = 'https://api.perplexity.ai/search';
 
@@ -10,6 +10,15 @@ function detectPlatform(url: string): Platform {
   if (url.includes('linkedin.com')) return 'linkedin';
   if (url.includes('tiktok.com')) return 'tiktok';
   return 'twitter';
+}
+
+/**
+ * Verifie si un texte contient au moins une des variantes de nom a surveiller.
+ * La comparaison est insensible a la casse.
+ */
+function isRelevantMention(text: string): boolean {
+  const lower = text.toLowerCase();
+  return SUBJECT_VARIANTS.some((variant) => lower.includes(variant.toLowerCase()));
 }
 
 async function searchPlatform(
@@ -26,7 +35,7 @@ async function searchPlatform(
       },
       body: JSON.stringify({
         query,
-        max_results: 8,
+        max_results: 10,
         search_recency_filter: 'week',
       }),
     });
@@ -45,7 +54,18 @@ async function searchPlatform(
       return [];
     }
 
-    return results.slice(0, 8).map((result: { url?: string; title?: string; snippet?: string; date?: string }, idx: number) => ({
+    // Filtrer: ne garder que les resultats qui mentionnent reellement l'une des variantes
+    const filtered = results.filter((result: { url?: string; title?: string; snippet?: string }) => {
+      const combinedText = `${result.title || ''} ${result.snippet || ''}`;
+      return isRelevantMention(combinedText);
+    });
+
+    if (filtered.length === 0) {
+      console.warn(`No relevant mentions for ${platform} after filtering.`);
+      return [];
+    }
+
+    return filtered.slice(0, 8).map((result: { url?: string; title?: string; snippet?: string; date?: string }, idx: number) => ({
       id: `${platform}-${Date.now()}-${idx}`,
       url: result.url || `https://perplexity.ai/search?q=${encodeURIComponent(query)}`,
       title: result.title || 'Sans titre',
