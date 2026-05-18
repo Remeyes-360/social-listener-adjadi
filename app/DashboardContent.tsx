@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AnalyzedMention, Platform, RawMention } from '@/lib/types';
 import { SUBJECT_NAME } from '@/lib/platforms';
 import { MentionCard } from '@/components/MentionCard';
@@ -20,14 +20,15 @@ const defaultFilters: Filters = {
 };
 
 function rawToAnalyzed(raw: RawMention): AnalyzedMention {
+  const content = raw.content || '';
   return {
     ...raw,
     analysis: {
-      sentiment: 'neutral' as const,
+      sentiment: 'neutral',
       confidence: 50,
-      summary: raw.content?.slice(0, 120) || raw.title || '',
-      context: 'other' as const,
-      importance: 'medium' as const,
+      summary: content.slice(0, 120) + (content.length > 120 ? '...' : ''),
+      context: 'other',
+      importance: 'medium',
       language: 'fr',
     },
     analyzedAt: new Date().toISOString(),
@@ -46,15 +47,16 @@ export default function Dashboard() {
   const [newMentionIds, setNewMentionIds] = useState<Set<string>>(new Set());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mentionsRef = useRef<AnalyzedMention[]>([]);
 
-  const fetchAndAnalyze = useCallback(async () => {
+  const fetchAndAnalyze = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const mentionsRes = await fetch('/api/mentions');
-      if (!mentionsRes.ok) throw new Error('Erreur lors de la recuperation des mentions');
-      const mentionsData = await mentionsRes.json();
-      const rawMentions: RawMention[] = mentionsData.mentions || [];
+      const res = await fetch('/api/mentions');
+      if (!res.ok) throw new Error('Erreur lors de la recuperation des mentions');
+      const data = await res.json();
+      const rawMentions: RawMention[] = data.mentions || [];
 
       if (rawMentions.length === 0) {
         setLastRefresh(new Date());
@@ -62,39 +64,43 @@ export default function Dashboard() {
         return;
       }
 
-      // Show raw mentions immediately with default analysis
+      // Show raw mentions immediately
       const defaultAnalyzed = rawMentions.map(rawToAnalyzed);
-      const existingIds = new Set(mentions.map((m) => m.id));
-      const newIds = new Set(defaultAnalyzed.filter((m) => !existingIds.has(m.id)).map((m) => m.id));
+      const existingIds = new Set(mentionsRef.current.map((m) => m.id));
+      const newIds = new Set(
+        defaultAnalyzed.filter((m) => !existingIds.has(m.id)).map((m) => m.id)
+      );
       if (newIds.size > 0) {
         setNewMentionIds(newIds);
         setTimeout(() => setNewMentionIds(new Set()), 3000);
       }
+      mentionsRef.current = defaultAnalyzed;
       setMentions(defaultAnalyzed);
       setLastRefresh(new Date());
       setIsLoading(false);
 
-      // Now try to analyze in background with timeout
+      // Analyze in background
       setIsAnalyzing(true);
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 50000);
-        const analyzeRes = await fetch('/api/analyze', {
+        const tid = setTimeout(() => controller.abort(), 50000);
+        const aRes = await fetch('/api/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ mentions: rawMentions }),
           signal: controller.signal,
         });
-        clearTimeout(timeoutId);
-        if (analyzeRes.ok) {
-          const analyzeData = await analyzeRes.json();
-          const analyzed: AnalyzedMention[] = analyzeData.mentions || [];
+        clearTimeout(tid);
+        if (aRes.ok) {
+          const aData = await aRes.json();
+          const analyzed: AnalyzedMention[] = aData.mentions || [];
           if (analyzed.length > 0) {
+            mentionsRef.current = analyzed;
             setMentions(analyzed);
           }
         }
       } catch {
-        // Analysis timed out or failed - keep raw mentions displayed
+        // Timeout or error - keep raw mentions
       } finally {
         setIsAnalyzing(false);
       }
@@ -102,14 +108,10 @@ export default function Dashboard() {
       setError(err instanceof Error ? err.message : 'Erreur inconnue');
       setIsLoading(false);
     }
-  }, [mentions]);
+  };
 
   useEffect(() => {
     fetchAndAnalyze();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
     timerRef.current = setInterval(() => {
       fetchAndAnalyze();
       setNextRefreshIn(POLL_INTERVAL);
@@ -121,13 +123,14 @@ export default function Dashboard() {
       if (timerRef.current) clearInterval(timerRef.current);
       if (countdownRef.current) clearInterval(countdownRef.current);
     };
-  }, [fetchAndAnalyze]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleManualRefresh = () => {
-    fetchAndAnalyze();
-    setNextRefreshIn(POLL_INTERVAL);
     if (timerRef.current) clearInterval(timerRef.current);
     if (countdownRef.current) clearInterval(countdownRef.current);
+    fetchAndAnalyze();
+    setNextRefreshIn(POLL_INTERVAL);
     timerRef.current = setInterval(() => {
       fetchAndAnalyze();
       setNextRefreshIn(POLL_INTERVAL);
@@ -166,7 +169,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
-      {/* Header */}
       <header className="border-b border-gray-800 bg-gray-900/50 backdrop-blur sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -212,17 +214,12 @@ export default function Dashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
-        {/* Platform Tabs */}
         <PlatformTabs
           activePlatform={activePlatform}
           onPlatformChange={setActivePlatform}
           platformCounts={platformCounts}
         />
-
-        {/* Filters */}
         <FilterBar filters={filters} onFiltersChange={setFilters} />
-
-        {/* Stats */}
         <div className="flex items-center justify-between mb-4">
           <span className="text-sm text-gray-400">
             {filteredMentions.length} mention{filteredMentions.length !== 1 ? 's' : ''} affichee{filteredMentions.length !== 1 ? 's' : ''}
@@ -231,40 +228,30 @@ export default function Dashboard() {
           {isAnalyzing && (
             <span className="flex items-center gap-2 text-xs text-purple-400">
               <RefreshCw size={12} className="animate-spin" />
-              Analyse Perplexity en cours...
+              Analyse IA en cours...
             </span>
           )}
         </div>
-
-        {/* Error */}
         {error && (
           <div className="bg-red-900/30 border border-red-700 rounded p-4 mb-4">
-            <p className="text-red-400 font-medium">Erreur de recuperation</p>
+            <p className="text-red-400 font-medium">Erreur</p>
             <p className="text-red-300 text-sm">{error}</p>
           </div>
         )}
-
-        {/* Loading */}
         {isLoading && (
           <div className="flex items-center justify-center py-12">
             <RefreshCw size={24} className="animate-spin text-blue-400" />
           </div>
         )}
-
-        {/* Empty state */}
         {!isLoading && filteredMentions.length === 0 && !error && (
           <div className="text-center py-16 text-gray-500">
             <p className="text-4xl mb-4">📡</p>
             <h3 className="font-semibold text-lg">Aucune mention trouvee</h3>
             <p className="text-sm">
-              {mentions.length > 0
-                ? 'Essayez de modifier vos filtres'
-                : 'Configurez votre cle PERPLEXITY_API_KEY puis actualisez'}
+              {mentions.length > 0 ? 'Modifiez vos filtres' : 'Configurez PERPLEXITY_API_KEY'}
             </p>
           </div>
         )}
-
-        {/* Mention cards */}
         <div className="space-y-3">
           {filteredMentions.map((mention) => (
             <MentionCard
@@ -274,8 +261,6 @@ export default function Dashboard() {
             />
           ))}
         </div>
-
-        {/* Stats panel + Live */}
         {mentions.length > 0 && (
           <div className="mt-8">
             <StatsPanel mentions={mentions} />
@@ -287,10 +272,8 @@ export default function Dashboard() {
           </div>
         )}
       </main>
-
-      {/* Footer */}
       <footer className="text-center text-xs text-gray-600 py-4">
-        Social Listener · Powered by Perplexity AI Sonar&nbsp;&nbsp;|&nbsp;&nbsp;Rafraichissement auto toutes les heures
+        Social Listener · Powered by Perplexity AI Sonar
       </footer>
     </div>
   );
