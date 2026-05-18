@@ -10,14 +10,15 @@ export const SUBJECT_VARIANTS = [
   'Ministre des Affaires etrangeres du Benin',
 ];
 
-// Query globale : toutes les variantes en OR (sans restriction de domaine)
+// Query globale : toutes les variantes en OR
 export const SEARCH_QUERY = SUBJECT_VARIANTS.map((v) => `"${v}"`).join(' OR ');
 
 export const PLATFORMS: PlatformConfig[] = [
   {
     id: 'twitter',
     label: 'Twitter / X',
-    query: SEARCH_QUERY + ' (twitter OR "Tweet" OR "@")',
+    query: SEARCH_QUERY,
+    domains: ['twitter.com', 'x.com'],
     color: '#1DA1F2',
     bgColor: 'rgba(29,161,242,0.1)',
     textColor: '#1DA1F2',
@@ -25,7 +26,8 @@ export const PLATFORMS: PlatformConfig[] = [
   {
     id: 'instagram',
     label: 'Instagram',
-    query: SEARCH_QUERY + ' (instagram OR "Instagram")',
+    query: SEARCH_QUERY,
+    domains: ['instagram.com'],
     color: '#E1306C',
     bgColor: 'rgba(225,48,108,0.1)',
     textColor: '#E1306C',
@@ -33,7 +35,8 @@ export const PLATFORMS: PlatformConfig[] = [
   {
     id: 'facebook',
     label: 'Facebook',
-    query: SEARCH_QUERY + ' (facebook OR "Facebook")',
+    query: SEARCH_QUERY,
+    domains: ['facebook.com'],
     color: '#1877F2',
     bgColor: 'rgba(24,119,242,0.1)',
     textColor: '#1877F2',
@@ -41,7 +44,8 @@ export const PLATFORMS: PlatformConfig[] = [
   {
     id: 'linkedin',
     label: 'LinkedIn',
-    query: SEARCH_QUERY + ' (linkedin OR "LinkedIn")',
+    query: SEARCH_QUERY,
+    domains: ['linkedin.com'],
     color: '#0A66C2',
     bgColor: 'rgba(10,102,194,0.1)',
     textColor: '#0A66C2',
@@ -49,12 +53,10 @@ export const PLATFORMS: PlatformConfig[] = [
   {
     id: 'tiktok',
     label: 'TikTok',
-    query: SEARCH_QUERY + ' (tiktok OR "TikTok")',
-    color: '#FF0050',
-    bgColor: 'rgba(255,0,80,0.1)',
-    textColor: '#FF0050',
+    query: SEARCH_QUERY,
+    domains: ['tiktok.com'],
+    color: '#010101',
+    bgColor: 'rgba(1,1,1,0.1)',
+    textColor: '#69C9D0',
   },
 ];
-
-export const getPlatformConfig = (id: string): PlatformConfig | undefined =>
-  PLATFORMS.find((p) => p.id === id);
