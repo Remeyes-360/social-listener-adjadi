@@ -60,3 +60,7 @@ export const PLATFORMS: PlatformConfig[] = [
     textColor: '#69C9D0',
   },
 ];
+
+
+export const getPlatformConfig = (id: string): PlatformConfig | undefined =>
+  PLATFORMS.find((p) => p.id === id);
